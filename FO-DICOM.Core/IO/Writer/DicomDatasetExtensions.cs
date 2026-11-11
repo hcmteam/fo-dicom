@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2012-2025 fo-dicom contributors.
+﻿// Copyright (c) 2012-2026 fo-dicom contributors.
 // Licensed under the Microsoft Public License (MS-PL).
 #nullable disable
 
@@ -87,11 +87,14 @@ namespace FellowOakDicom.IO.Writer
             if (!firstLevelOnly)
             {
                 // remove group lengths from sequences
-                foreach (var sq in dataset.Where(x => x.ValueRepresentation == DicomVR.SQ).Cast<DicomSequence>())
+                foreach (var item in dataset)
                 {
-                    foreach (var item in sq.Items)
+                    if (item is DicomSequence sq)
                     {
-                        item.RemoveGroupLengths(firstLevelOnly);
+                        foreach (var sqItem in sq.Items)
+                        {
+                            sqItem.RemoveGroupLengths(firstLevelOnly);
+                        }
                     }
                 }
             }

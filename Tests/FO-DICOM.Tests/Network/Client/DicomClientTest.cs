@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2012-2025 fo-dicom contributors.
+﻿// Copyright (c) 2012-2026 fo-dicom contributors.
 // Licensed under the Microsoft Public License (MS-PL).
 #nullable disable
 
@@ -241,10 +241,7 @@ namespace FellowOakDicom.Tests.Network.Client
             var flag = new ManualResetEventSlim();
 
             using var server = CreateServer<DicomCEchoProvider>(0);
-            while (!server.IsListening)
-            {
-                await Task.Delay(50);
-            }
+            await AsyncTestHelper.WaitForServerListeningAsync(server, 30);
 
             var actual = 0;
 
@@ -328,7 +325,7 @@ namespace FellowOakDicom.Tests.Network.Client
         {
             using var server = CreateServer<MockCEchoProvider>(0);
 
-        var client = CreateClient("127.0.0.1", server.Port, false, "SCU", "NOTACCEPTEDSCP");
+            var client = CreateClient("127.0.0.1", server.Port, false, "SCU", "NOTACCEPTEDSCP");
 
             var reason = DicomRejectReason.NoReasonGiven;
             client.AssociationRejected += (sender, args) => reason = args.Reason;
@@ -524,6 +521,7 @@ namespace FellowOakDicom.Tests.Network.Client
         public async Task SendAsync_Plus128CStoreRequestsCompressedTransferSyntax_NoOverflowContextIdsAllRequestsRecognized(int expected)
         {
             using var server = CreateServer<SimpleCStoreProvider>(0);
+            await AsyncTestHelper.WaitForServerListeningAsync(server);
 
             var actual = 0;
 
@@ -1383,7 +1381,7 @@ namespace FellowOakDicom.Tests.Network.Client
         {
             using var server = DicomServerFactory.Create<AsyncDicomCEchoProvider>(0, logger: _logger.IncludePrefix("Server"));
             var client = DicomClientFactory.Create("127.0.0.1", server.Port, false, "SCU", "ANY-SCP");
-            client.NegotiateAsyncOps(0,0);
+            client.NegotiateAsyncOps(0, 0);
             client.Logger = _logger.IncludePrefix("Client");
 
             var numberOfRequests = 100;
@@ -1391,7 +1389,7 @@ namespace FellowOakDicom.Tests.Network.Client
             for (var i = 0; i < numberOfRequests; i++)
             {
                 var request = new DicomCEchoRequest
-                    { OnResponseReceived = (req, res) => Interlocked.Increment(ref counter) };
+                { OnResponseReceived = (req, res) => Interlocked.Increment(ref counter) };
                 await client.AddRequestAsync(request);
             }
 

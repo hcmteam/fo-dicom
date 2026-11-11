@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2012-2025 fo-dicom contributors.
+﻿// Copyright (c) 2012-2026 fo-dicom contributors.
 // Licensed under the Microsoft Public License (MS-PL).
 #nullable disable
 
@@ -82,9 +82,7 @@ namespace FellowOakDicom.Tests.Network.Client
         #endregion
 
         [Theory]
-#if !NET462
         [InlineData(true)]
-#endif
         [InlineData(false)]
         public async Task SendAsync_WithClientCertificate_ShouldAuthenticate(bool requireMutualAuthentication)
         {
@@ -244,7 +242,7 @@ namespace FellowOakDicom.Tests.Network.Client
                     await client.SendAsync(cts.Token);
                 }
             }
-            catch(AggregateException aggEx)
+            catch (AggregateException aggEx)
             {
                 exception = aggEx.InnerException;
             }
@@ -255,6 +253,58 @@ namespace FellowOakDicom.Tests.Network.Client
 
             Assert.NotNull(exception);
             Assert.IsType<AuthenticationException>(exception);
+        }
+
+        [Fact]
+        public async Task SendWithoutTlsToTlsServerShouldFail()
+        {
+            // Arrange
+            var serverLogger = _logger.IncludePrefix(nameof(IDicomServer));
+
+            var tlsAcceptor = new DefaultTlsAcceptor("./Test Data/FellowOakDicom.p12", "FellowOakDicom")
+            {
+                RequireMutualAuthentication = false,
+                CertificateValidationCallback = (sender, x509Certificate, chain, errors) =>
+                {
+                    return false;
+                }
+            };
+
+            // create a server expecting tls
+            using var server = CreateServer<RecordingDicomCEchoProvider, RecordingDicomCEchoProviderServer>("127.0.0.1", 0, tlsAcceptor: tlsAcceptor);
+
+            // create a client not using tls
+            var client = CreateClient("127.0.0.1", server.Port, null, "SCU", "ANY-SCP");
+
+            DicomCEchoResponse actualResponse = null;
+            var dicomCEchoRequest = new DicomCEchoRequest
+            {
+                OnResponseReceived = (request, response) =>
+                {
+                    actualResponse = response;
+                }
+            };
+            await client.AddRequestAsync(dicomCEchoRequest);
+
+            Exception exception = null;
+            try
+            {
+                using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60)))
+                {
+                    await client.SendAsync(cts.Token);
+                }
+            }
+            catch (AggregateException aggEx)
+            {
+                exception = aggEx.InnerException;
+            }
+            catch (Exception ex)
+            {
+                exception = ex;
+            }
+
+            Assert.NotNull(exception);
+            Assert.IsType<DicomNetworkException>(exception);
         }
 
         [Fact]
@@ -312,7 +362,7 @@ namespace FellowOakDicom.Tests.Network.Client
             // Step 1: Manually start a TCP session and start an SSL handshake with the server, and then freeze the handshake
             using var tcpClient = new TcpClient("127.0.0.1", server.Port);
             using var tcpStream = tcpClient.GetStream();
-            
+
             // Send TLS 1.2 Client Hello but never complete it
             byte[] helloTls12 = {
                 0x16, // Content Type: Handshake
@@ -335,7 +385,7 @@ namespace FellowOakDicom.Tests.Network.Client
             tcpStream.Write(helloTls12, 0, helloTls12.Length);
             // At this point, you would need to read the server's response to resume and complete the handshake
             // However, we won't do that, since we want to test that the server accepts more connections while the handshake is frozen
-            
+
             // Step 2: Check that, while the SSL handshake is frozen, the server accepts more connections
             var tlsInitiator = new DefaultTlsInitiator();
             var client = CreateClient("127.0.0.1", server.Port, tlsInitiator, "SCU", "ANY-SCP");

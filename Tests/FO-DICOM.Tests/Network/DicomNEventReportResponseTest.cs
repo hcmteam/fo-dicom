@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2012-2025 fo-dicom contributors.
+﻿// Copyright (c) 2012-2026 fo-dicom contributors.
 // Licensed under the Microsoft Public License (MS-PL).
 #nullable disable
 
@@ -46,11 +46,7 @@ namespace FellowOakDicom.Tests.Network
 
         #endregion
 
-#if NET462
-        [Fact(Skip = "This test is flaky in .NET Framework")]
-#else
         [Fact]
-#endif
         public async Task ClientHandleNEventReport_SynchronousEvent()
         {
             using var server = DicomServerFactory.Create<SimpleStorageComitmentProvider>(0);

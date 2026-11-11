@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2012-2025 fo-dicom contributors.
+﻿// Copyright (c) 2012-2026 fo-dicom contributors.
 // Licensed under the Microsoft Public License (MS-PL).
 #nullable disable
 
@@ -26,8 +26,6 @@ namespace FellowOakDicom.IO
         private Endian _endian;
 
         private BinaryReader _reader;
-
-        private readonly object _lock;
 
         private bool _disposed;
 
@@ -58,7 +56,6 @@ namespace FellowOakDicom.IO
 
             LargeObjectSize = largeObjectSize <= 0 ? 64 * 1024 : largeObjectSize;
 
-            _lock = new object();
             _disposed = false;
         }
 
@@ -74,11 +71,8 @@ namespace FellowOakDicom.IO
             {
                 if (_endian != value)
                 {
-                    lock (_lock)
-                    {
-                        _endian = value;
-                        _reader = EndianBinaryReader.Create(_stream, _endian, false);
-                    }
+                    _endian = value;
+                    _reader = EndianBinaryReader.Create(_stream, _endian, false);
                 }
             }
         }
@@ -153,7 +147,9 @@ namespace FellowOakDicom.IO
             {
                 if (count < MemoryByteBuffer.MaxArrayLength)
                 {
-                    buffer = new MemoryByteBuffer(GetBytes((int)count));
+                    var bytes = GC.AllocateUninitializedArray<byte>((int)count);
+                    _stream.ReadExactly(bytes);
+                    buffer = new MemoryByteBuffer(bytes);
                 }
                 else
                 {
@@ -183,16 +179,10 @@ namespace FellowOakDicom.IO
         public void GoTo(long position) => _stream.Position = position;
 
         /// <inheritdoc />
-        public bool Require(uint count) => Require(count, null, null);
+        public bool Require(uint count) => (_length - _stream.Position) >= count;
 
         /// <inheritdoc />
-        public bool Require(uint count, ByteSourceCallback callback, object state)
-        {
-            lock (_lock)
-            {
-                return (_length - _stream.Position) >= count;
-            }
-        }
+        public bool Require(uint count, ByteSourceCallback callback, object state) => (_length - _stream.Position) >= count;
 
         /// <inheritdoc />
         public void Dispose()

@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2012-2025 fo-dicom contributors.
+﻿// Copyright (c) 2012-2026 fo-dicom contributors.
 // Licensed under the Microsoft Public License (MS-PL).
 #nullable disable
 
@@ -20,7 +20,7 @@ namespace FellowOakDicom.Tests.Bugs
             var file = DicomFile.Open(TestData.Resolve("GH340.dcm"));
 
             // Loop over last quarter of pixels; if one is non-zero test passes.
-            var pixelData = PixelDataFactory.Create(DicomPixelData.Create(file.Dataset), 0);
+            var pixelData = PixelDataFactory.Create(DicomPixelData.CreateFromDataset(file.Dataset), 0);
             for (var y = 3 * pixelData.Height / 4; y < pixelData.Height; ++y)
             {
                 for (var x = 0; x < pixelData.Width; ++x)

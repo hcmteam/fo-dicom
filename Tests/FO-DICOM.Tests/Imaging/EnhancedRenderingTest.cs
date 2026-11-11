@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2012-2025 fo-dicom contributors.
+﻿// Copyright (c) 2012-2026 fo-dicom contributors.
 // Licensed under the Microsoft Public License (MS-PL).
 #nullable disable
 
@@ -65,8 +65,8 @@ namespace FellowOakDicom.Tests.Imaging
             Assert.True(geometryFrame1.HasGeometryData);
             Assert.True(geometryFrame4.HasGeometryData);
 
-            Assert.Equal(-6.2, geometryFrame1.PointTopLeft.Z);
-            Assert.Equal(-3.2, geometryFrame4.PointTopLeft.Z);
+            Assert.Equal(-6.2m, geometryFrame1.PointTopLeft.Z);
+            Assert.Equal(-3.2m, geometryFrame4.PointTopLeft.Z);
         }
 
         [Fact]

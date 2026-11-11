@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2012-2025 fo-dicom contributors.
+﻿// Copyright (c) 2012-2026 fo-dicom contributors.
 // Licensed under the Microsoft Public License (MS-PL).
 #nullable disable
 
@@ -138,12 +138,14 @@ namespace FellowOakDicom
         /// <returns>Boolean if the composite DateTimeOffset could be extracted.</returns>
         public static bool TryGetDateTimeOffset(this DicomDataset dataset, DicomTag date, DicomTag time, out DateTimeOffset datetimeoffset, DicomDataset topLevelDataset = null)
         {
+            datetimeoffset = default;
             try
             {
                 if (!TryGetDateTime(dataset, date, time, out var datetime) || datetime == DateTime.MinValue)
                 {
                     // Don't specify timezone when no date or time is present. This will make
                     // the behavior consistent with GetDateTime extension
+                    datetimeoffset = default;
                     return false;
                 }
 
@@ -154,6 +156,7 @@ namespace FellowOakDicom
                     string s = timezone.Get<string>();
                     if (!DicomValidation.IsValidTimezoneOffset(s))
                     {
+                        datetimeoffset = default;
                         return false;
                     }
                     int sign = s[0] switch
@@ -164,6 +167,7 @@ namespace FellowOakDicom
                     };
                     if (!int.TryParse(s.Substring(1, 2), out var hh) || !int.TryParse(s.Substring(3, 2), out var mm))
                     {
+                        datetimeoffset = default;
                         return false;
                     }
 
@@ -183,6 +187,7 @@ namespace FellowOakDicom
             }
             catch
             {
+                datetimeoffset = default;
                 return false;
             }
         }

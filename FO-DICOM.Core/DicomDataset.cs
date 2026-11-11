@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2012-2025 fo-dicom contributors.
+﻿// Copyright (c) 2012-2026 fo-dicom contributors.
 // Licensed under the Microsoft Public License (MS-PL).
 #nullable disable
 
@@ -17,7 +17,7 @@ namespace FellowOakDicom
     /// <summary>
     /// A collection of <see cref="DicomItem">DICOM items</see>.
     /// </summary>
-    public partial class DicomDataset : IEnumerable<DicomItem>, IEquatable<DicomDataset>
+    public partial class DicomDataset : IEnumerable<DicomItem>
     {
         #region Static Properties
 
@@ -53,8 +53,18 @@ namespace FellowOakDicom
         /// </summary>
         /// <param name="internalTransferSyntax">Internal transfer syntax representation of the dataset.</param>
         public DicomDataset(DicomTransferSyntax internalTransferSyntax)
+            : this(internalTransferSyntax, 64)
         {
-            _items = new SortedList<DicomTag, DicomItem>();
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="DicomDataset"/> class.
+        /// </summary>
+        /// <param name="internalTransferSyntax">Internal transfer syntax representation of the dataset.</param>
+        /// <param name="capacity">Initial capacity of the internal collection.</param>
+        internal DicomDataset(DicomTransferSyntax internalTransferSyntax, int capacity)
+        {
+            _items = new SortedList<DicomTag, DicomItem>(capacity);
             InternalTransferSyntax = internalTransferSyntax;
         }
 
@@ -824,7 +834,7 @@ namespace FellowOakDicom
                     }
                 }
             }
-            
+
             // gets the specific items from PerFrameFunctionalGroups for this frame
             if (TryGetSequence(DicomTag.PerFrameFunctionalGroupsSequence, out var perFrameFunctionalGroupsSequence)
                 && perFrameFunctionalGroupsSequence.Items.Count > frame)
@@ -852,7 +862,7 @@ namespace FellowOakDicom
                 }
 
             }
-            
+
             return functionalDs;
         }
 
@@ -1031,7 +1041,21 @@ namespace FellowOakDicom
         /// <returns>Current Dataset</returns>
         public DicomDataset Remove(Func<DicomItem, bool> selector)
         {
-            _items.Values.Where(selector).ToList().Each(item => _items.Remove(item.Tag));
+            List<DicomTag> toRemove = null;
+            foreach (var item in _items.Values)
+            {
+                if (selector(item))
+                {
+                    (toRemove ??= new List<DicomTag>()).Add(item.Tag);
+                }
+            }
+            if (toRemove != null)
+            {
+                foreach (var tag in toRemove)
+                {
+                    _items.Remove(tag);
+                }
+            }
             return this;
         }
 
@@ -1591,10 +1615,12 @@ namespace FellowOakDicom
 
         private void SetTargetEncodingsToStringElements(Encoding[] values)
         {
-
-            foreach (var txt in this.FilterByType<DicomStringElement>())
+            foreach (var item in this)
             {
-                txt.TargetEncodings = values;
+                if (item is DicomStringElement txt)
+                {
+                    txt.TargetEncodings = values;
+                }
             }
         }
 
@@ -1607,19 +1633,15 @@ namespace FellowOakDicom
 
         public override bool Equals(object obj)
         {
-            if (Object.ReferenceEquals(obj, null)) return false;
+            if (obj is null) return false;
             if (Object.ReferenceEquals(this, obj)) return true;
             if (GetType() != obj.GetType()) return false;
             return Equals(obj as DicomDataset);
         }
 
-        public bool Equals(DicomDataset other)
-        {
-            return
-                CompareInstancesByContent
+        private bool Equals(DicomDataset other) => CompareInstancesByContent
                 ? DicomDatasetComparer.DefaultInstance.Equals(this, other)
                 : ReferenceEquals(this, other);
-        }
 
         public static bool operator ==(DicomDataset a, DicomDataset b)
         {

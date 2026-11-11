@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2012-2025 fo-dicom contributors.
+﻿// Copyright (c) 2012-2026 fo-dicom contributors.
 // Licensed under the Microsoft Public License (MS-PL).
 #nullable disable
 
@@ -40,7 +40,7 @@ namespace FellowOakDicom.Tests.Bugs
 
             using var server = DicomServerFactory.Create<DicomCEchoProvider>(0);
             server.Logger = serverLogger;
-            while (!server.IsListening) { await Task.Delay(50); }
+            await AsyncTestHelper.WaitForServerListeningAsync(server, 30);
 
             var actual = 0;
 
@@ -84,7 +84,7 @@ namespace FellowOakDicom.Tests.Bugs
 
             using var server = DicomServerFactory.Create<DicomCEchoProvider>(0);
             server.Logger = serverLogger;
-            while (!server.IsListening) { await Task.Delay(50); }
+            await AsyncTestHelper.WaitForServerListeningAsync(server, 30);
 
             var actual = 0;
 

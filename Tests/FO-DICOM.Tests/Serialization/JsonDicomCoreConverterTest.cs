@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2012-2025 fo-dicom contributors.
+﻿// Copyright (c) 2012-2026 fo-dicom contributors.
 // Licensed under the Microsoft Public License (MS-PL).
 #nullable disable
 
@@ -329,6 +329,43 @@ namespace FellowOakDicom.Tests.Serialization
         }
 
         /// <summary>
+        /// PS3.18 F.2.5 requires empty attributes to omit Value,
+        /// unlike empty positions within a multi-valued attribute.
+        /// </summary>
+        [Fact]
+        public void EmptySingleValuedTextElementsShouldOmitValueMember()
+        {
+            var ds = new DicomDataset().NotValidated();
+            ds.Add(new DicomShortText(DicomTag.DerivationDescription, string.Empty));
+            ds.Add(new DicomLongText(DicomTag.PatientComments, string.Empty));
+            ds.Add(new DicomUnlimitedText(DicomTag.TextValue, string.Empty));
+
+            var json = DicomJson.ConvertDicomToJson(ds);
+            using var obj = JsonDocument.Parse(json);
+
+            Assert.False(obj.RootElement.GetProperty("00082111").TryGetProperty("Value", out _));
+            Assert.False(obj.RootElement.GetProperty("00104000").TryGetProperty("Value", out _));
+            Assert.False(obj.RootElement.GetProperty("0040A160").TryGetProperty("Value", out _));
+        }
+
+        [Fact]
+        public void NonEmptySingleValuedTextElementShouldKeepValueMember()
+        {
+            var ds = new DicomDataset().NotValidated();
+            ds.Add(new DicomShortText(DicomTag.DerivationDescription, "some derivation"));
+            ds.Add(new DicomLongText(DicomTag.PatientComments, "some comments"));
+
+            var json = DicomJson.ConvertDicomToJson(ds);
+            using var obj = JsonDocument.Parse(json);
+
+            var shortTextValue = Assert.Single(obj.RootElement.GetProperty("00082111").GetProperty("Value").EnumerateArray());
+            Assert.Equal("some derivation", shortTextValue.GetString());
+
+            var longTextValue = Assert.Single(obj.RootElement.GetProperty("00104000").GetProperty("Value").EnumerateArray());
+            Assert.Equal("some comments", longTextValue.GetString());
+        }
+
+        /// <summary>
         ///     A test for ToString
         /// </summary>
         [Fact]
@@ -602,10 +639,8 @@ namespace FellowOakDicom.Tests.Serialization
         /// <summary>
         /// Run the examples from DICOM Standard PS 3.18, section F.2.1.1.2.
         /// </summary>
-        [Theory]
-        [InlineData(false)]
-        [InlineData(true)]
-        public void RunExamplesFromPS3_18_F_2_1_1_2(bool useLegacyConverter)
+        [Fact]
+        public void RunExamplesFromPS3_18_F_2_1_1_2()
         {
             var json = @"
 [
@@ -623,7 +658,7 @@ namespace FellowOakDicom.Tests.Serialization
   }
 ]";
 
-            var reconstituated = useLegacyConverter ? LegacyConvertJsonToDicomArray(json) : DicomJson.ConvertJsonToDicomArray(json);
+            var reconstituated = DicomJson.ConvertJsonToDicomArray(json);
             Assert.Equal("1.2.392.200036.9116.2.2.2.1762893313.1029997326.945873", reconstituated[0].GetSingleValue<DicomUID>(0x0020000d).UID);
             Assert.Equal("1.2.392.200036.9116.2.2.2.2162893313.1029997326.945876", reconstituated[1].GetSingleValue<DicomUID>(0x0020000d).UID);
         }
@@ -642,13 +677,11 @@ namespace FellowOakDicom.Tests.Serialization
         }
 
 
-        [Theory]
-        [InlineData(false)]
-        [InlineData(true)]
-        public void ParseExampleJsonFromDicomNemaOrg(bool useLegacyConverter)
+        [Fact]
+        public void ParseExampleJsonFromDicomNemaOrg()
         {
             var json = _jsonExampleFromDicomNemaOrg;
-            var reconstituated = useLegacyConverter ? LegacyConvertJsonToDicomArray(json) : DicomJson.ConvertJsonToDicomArray(json);
+            var reconstituated = DicomJson.ConvertJsonToDicomArray(json);
             Assert.Equal(new DateTime(2013, 4, 9), reconstituated[0].GetSingleValue<DateTime>(DicomTag.StudyDate));
             Assert.Equal("^Bob^^Dr.", reconstituated[0].GetSingleValue<string>(DicomTag.ReferringPhysicianName));
         }
@@ -683,10 +716,8 @@ namespace FellowOakDicom.Tests.Serialization
         /// <summary>
         /// vr is not first position of json properties.
         /// </summary>
-        [Theory]
-        [InlineData(false)]
-        [InlineData(true)]
-        public void VrIsNotFirstPosition(bool useLegacyConverter)
+        [Fact]
+        public void VrIsNotFirstPosition()
         {
             var json = @"
 [
@@ -704,20 +735,11 @@ namespace FellowOakDicom.Tests.Serialization
   }
 ]";
 
-            var reconstituated = useLegacyConverter ? LegacyConvertJsonToDicomArray(json) : DicomJson.ConvertJsonToDicomArray(json);
+            var reconstituated = DicomJson.ConvertJsonToDicomArray(json);
             Assert.Equal("1.2.392.200036.9116.2.2.2.1762893313.1029997326.945873", reconstituated[0].GetSingleValue<DicomUID>(0x0020000d).UID);
             Assert.Equal("1.2.392.200036.9116.2.2.2.2162893313.1029997326.945876", reconstituated[1].GetSingleValue<DicomUID>(0x0020000d).UID);
         }
 
-        private static DicomDataset[] LegacyConvertJsonToDicomArray(string json)
-        {
-            var options = new JsonSerializerOptions();
-#pragma warning disable CS0618
-            options.Converters.Add(new DicomArrayJsonConverter());
-#pragma warning restore CS0618
-            options.ReadCommentHandling = JsonCommentHandling.Skip;
-            return JsonSerializer.Deserialize<DicomDataset[]>(json, options);
-        }
 
         /// <summary>
         /// Test round-tripping a dicom dataset containing a bulk uri byte buffer.
@@ -1173,6 +1195,7 @@ namespace FellowOakDicom.Tests.Serialization
             var converter = new DicomJsonConverter(autoValidate: false, numberSerializationMode: NumberSerializationMode.PreferablyAsNumber);
 
             var serializerOptions = new JsonSerializerOptions();
+            serializerOptions.TypeInfoResolver = FellowOakDicom.Serialization.SourceGenerationContext.Default;
             serializerOptions.Converters.Add(converter);
 
             var json = JsonSerializer.Serialize(dicomDataset, serializerOptions);
@@ -1194,6 +1217,7 @@ namespace FellowOakDicom.Tests.Serialization
             var converter = new DicomJsonConverter(autoValidate: false, numberSerializationMode: NumberSerializationMode.PreferablyAsNumber);
 
             var serializerOptions = new JsonSerializerOptions();
+            serializerOptions.TypeInfoResolver = FellowOakDicom.Serialization.SourceGenerationContext.Default;
             serializerOptions.Converters.Add(converter);
 
             var json = JsonSerializer.Serialize(dicomDataset, serializerOptions);
@@ -1203,10 +1227,8 @@ namespace FellowOakDicom.Tests.Serialization
             Assert.Equal(overflowNumber, recoveredValue);
         }
 
-        [Theory]
-        [InlineData(false)]
-        [InlineData(true)]
-        public static void GivenNestedNullJsonTokens_WhenDeserialization_ThenReturnsNull(bool useLegacyConverter)
+        [Fact]
+        public static void GivenNestedNullJsonTokens_WhenDeserialization_ThenReturnsNull()
         {
 
             string json = @"
@@ -1225,7 +1247,7 @@ namespace FellowOakDicom.Tests.Serialization
     }
   }
 ]";
-            var reconstituated = useLegacyConverter ? LegacyConvertJsonToDicomArray(json) : DicomJson.ConvertJsonToDicomArray(json);
+            var reconstituated = DicomJson.ConvertJsonToDicomArray(json);
             Assert.Equal(3, reconstituated.Length);
             Assert.NotNull(reconstituated[0]);
             Assert.Null(reconstituated[1]);
@@ -1239,10 +1261,8 @@ namespace FellowOakDicom.Tests.Serialization
             Assert.Throws<JsonException>(() => DicomJson.ConvertJsonToDicom(invalidDatasetJson));
         }
 
-        [Theory]
-        [InlineData(false)]
-        [InlineData(true)]
-        public static void GivenNestedInvalidJsonToken_WhenDeserialization_ThenThrowsJsonException(bool useLegacyConverter)
+        [Fact]
+        public static void GivenNestedInvalidJsonToken_WhenDeserialization_ThenThrowsJsonException()
         {
             string invalidDatasetJson = @"
 [
@@ -1260,7 +1280,7 @@ namespace FellowOakDicom.Tests.Serialization
     }
   }
 ]";
-            Assert.Throws<JsonException>(() => useLegacyConverter ? LegacyConvertJsonToDicomArray(invalidDatasetJson) : DicomJson.ConvertJsonToDicomArray(invalidDatasetJson));
+            Assert.Throws<JsonException>(() => DicomJson.ConvertJsonToDicomArray(invalidDatasetJson));
         }
 
         [Fact]
@@ -1442,6 +1462,7 @@ namespace FellowOakDicom.Tests.Serialization
             };
 
             var options = new JsonSerializerOptions();
+            options.TypeInfoResolver = FellowOakDicom.Serialization.SourceGenerationContext.Default;
             options.Converters.Add(converter);
             var json = JsonSerializer.Serialize(dataset, options);
 
@@ -1455,6 +1476,7 @@ namespace FellowOakDicom.Tests.Serialization
             var ds = new DicomDataset(new DicomOtherByteFragment(DicomTag.PixelData));
             var jsonOptions = new JsonSerializerOptions
             {
+                TypeInfoResolver = FellowOakDicom.Serialization.SourceGenerationContext.Default,
                 WriteIndented = true,
                 Converters = { new DicomJsonConverter() }
             };

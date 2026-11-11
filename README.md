@@ -10,8 +10,7 @@
 This library is licensed under the [Microsoft Public License (MS-PL)](http://opensource.org/licenses/MS-PL). See [License.txt](License.txt) for more information.
 
 ### Features
-* Targets .NET Standard 2.0
-* DICOM dictionary version 2025d
+* DICOM dictionary version 2026b
 * High-performance, fully asynchronous `async`/`await` API
 * JPEG (including lossless), JPEG-LS, JPEG2000, HTJPEG2000, and RLE image compression (via additional package)
 * Supports very large datasets with content loading on demand
@@ -25,11 +24,11 @@ This library is licensed under the [Microsoft Public License (MS-PL)](http://ope
 
 Fellow Oak DICOM officially supports the following runtimes:
 
-* .NET Core 8.0
-* .NET Core 9.0
-* .NET Framework 4.6.2
+* .NET 8.0
+* .NET 9.0
+* .NET 10.0
 
-Other runtimes that implement .NET Standard 2.0 may work, but be aware that our CI pipeline only tests these platforms.
+Other runtimes may work, but be aware that our CI pipeline only tests these platforms.
 
 ### Installation
 Easiest is to obtain *fo-dicom* binaries from [NuGet](https://www.nuget.org/packages/fo-dicom/). This package references the core *fo-dicom* assemblies for all Microsoft and Xamarin platforms.
@@ -268,25 +267,6 @@ var sharpimage = image.RenderImage().AsSharpImage();
     
 #### Logging configuration
 Fellow Oak DICOM uses `Microsoft.Extensions.Logging`, so if you are already using that, Fellow Oak DICOM logging will show up automatically.
-
-In the past, Fellow Oak DICOM had a custom abstraction for logging: ILogger and ILogManager.
-For backwards compatibility purposes, this is still supported but not recommended for new applications.
-
-```csharp
-services.AddLogManager<MyLogManager>();
-```
-
-where MyLogManager looks like this:
-
-```
-using FellowOakDicom.Log;
-
-public class MyLogManager: ILogManager {
-    public ILogger GetLogger(string name) {
-        ...
-    }
-}
-```
 
 ### Sample applications
 There are a number of simple sample applications that use *fo-dicom* available in separate repository [here](https://github.com/fo-dicom/fo-dicom-samples). These also include the samples

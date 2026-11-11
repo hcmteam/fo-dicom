@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2012-2025 fo-dicom contributors.
+﻿// Copyright (c) 2012-2026 fo-dicom contributors.
 // Licensed under the Microsoft Public License (MS-PL).
 #nullable disable
 
@@ -9,6 +9,7 @@ using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using FellowOakDicom.Imaging;
 using FellowOakDicom.Imaging.Mathematics;
 using FellowOakDicom.IO;
 using FellowOakDicom.IO.Buffer;
@@ -163,10 +164,9 @@ namespace FellowOakDicom
                 return (T)(object)(new string[] { StringValue });
             }
 
-            if (typeof(T).GetTypeInfo().IsSubclassOf(typeof(DicomParseable)))
-            {
-                return DicomParseable.Parse<T>(StringValue);
-            }
+            if (typeof(T) == typeof(DicomUID)) return (T)(object)DicomUID.Parse(StringValue);
+            if (typeof(T) == typeof(PhotometricInterpretation)) return (T)(object)PhotometricInterpretation.Parse(StringValue);
+            if (typeof(T) == typeof(DicomTransferSyntax)) return (T)(object)DicomTransferSyntax.Parse(StringValue);
 
             if (typeof(T).GetTypeInfo().IsEnum)
             {
@@ -268,7 +268,10 @@ namespace FellowOakDicom
         protected override void ValidateString()
         {
             EnsureSplitValues();
-            _values.ToList().ForEach(ValueRepresentation.ValidateString);
+            foreach (var v in _values)
+            {
+                ValueRepresentation.ValidateString(v);
+            }
         }
 
         public override T Get<T>(int item = -1)
@@ -299,10 +302,9 @@ namespace FellowOakDicom
                 throw new ArgumentOutOfRangeException(nameof(item), "Index is outside the range of available value items");
             }
 
-            if (typeof(T).GetTypeInfo().IsSubclassOf(typeof(DicomParseable)))
-            {
-                return DicomParseable.Parse<T>(_values[item]);
-            }
+            if (typeof(T) == typeof(DicomUID)) return (T)(object)DicomUID.Parse(_values[item]);
+            if (typeof(T) == typeof(PhotometricInterpretation)) return (T)(object)PhotometricInterpretation.Parse(_values[item]);
+            if (typeof(T) == typeof(DicomTransferSyntax)) return (T)(object)DicomTransferSyntax.Parse(_values[item]);
 
             var t = Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T);
             if (t.GetTypeInfo().IsEnum)
@@ -865,11 +867,17 @@ namespace FellowOakDicom
 
             if (_values == null)
             {
-                _values =
-                    base.Get<string[]>()
-                        // #1296 some invalid files have "," as decimal separator. because a comma is no valid character in DS, this cannot be misinterpretated and it is obvious to replace it by "."
-                        .Select(x => decimal.Parse(x.Replace(',','.'), NumberStyles.Any, CultureInfo.InvariantCulture))
-                        .ToArray();
+                var parts = base.Get<string[]>();
+                var parsed = new decimal[parts.Length];
+                for (var i = 0; i < parts.Length; i++)
+                {
+                    var s = parts[i];
+                    // #1296 some invalid files have "," as decimal separator. because a comma is no valid character in DS, this cannot be misinterpretated and it is obvious to replace it by "."
+                    parsed[i] = s.IndexOf(',') < 0
+                        ? decimal.Parse(s.AsSpan(), NumberStyles.Any, CultureInfo.InvariantCulture)
+                        : decimal.Parse(s.Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture);
+                }
+                _values = parsed;
             }
 
             if (typeof(T).GetTypeInfo().IsArray)
@@ -1104,7 +1112,13 @@ namespace FellowOakDicom
 
             if (_values == null)
             {
-                _values = base.Get<string[]>().Select(x => int.Parse(x, NumberStyles.Integer | NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture)).ToArray();
+                var parts = base.Get<string[]>();
+                var parsed = new int[parts.Length];
+                for (var i = 0; i < parts.Length; i++)
+                {
+                    parsed[i] = int.Parse(parts[i].AsSpan(), NumberStyles.Integer | NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture);
+                }
+                _values = parsed;
             }
 
             if (typeof(T) == typeof(int) || typeof(T) == typeof(object))

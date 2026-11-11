@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2012-2025 fo-dicom contributors.
+﻿// Copyright (c) 2012-2026 fo-dicom contributors.
 // Licensed under the Microsoft Public License (MS-PL).
 #nullable disable
 
@@ -15,74 +15,6 @@ using System.Text.RegularExpressions;
 
 namespace FellowOakDicom.Serialization
 {
-
-    [Obsolete("Please use DicomJsonConverter instead.")]
-    public class DicomArrayJsonConverter : JsonConverter<DicomDataset[]>
-    {
-        private readonly bool _writeTagsAsKeywords;
-
-        /// <summary>
-        /// Initialize the JsonDicomConverter.
-        /// </summary>
-        /// <param name="writeTagsAsKeywords">Whether to write the json keys as DICOM keywords instead of tags. This makes the json non-compliant to DICOM JSON.</param>
-        public DicomArrayJsonConverter()
-            : this(false)
-        {
-        }
-
-        /// <summary>
-        /// Initialize the JsonDicomConverter.
-        /// </summary>
-        /// <param name="writeTagsAsKeywords">Whether to write the json keys as DICOM keywords instead of tags. This makes the json non-compliant to DICOM JSON.</param>
-        public DicomArrayJsonConverter(bool writeTagsAsKeywords)
-        {
-            _writeTagsAsKeywords = writeTagsAsKeywords;
-        }
-
-        public override DicomDataset[] Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-        {
-            var datasetList = new List<DicomDataset>();
-            if (reader.TokenType != JsonTokenType.StartArray)
-            {
-                return datasetList.ToArray();
-            }
-            reader.Read();
-            var conv = new DicomJsonConverter(writeTagsAsKeywords: _writeTagsAsKeywords);
-            while (reader.TokenType != JsonTokenType.EndArray)
-            {
-                DicomDataset ds;
-                switch (reader.TokenType)
-                {
-                    case JsonTokenType.StartObject:
-                        ds = conv.Read(ref reader, typeToConvert, options);
-                        reader.AssumeAndSkip(JsonTokenType.EndObject);
-                        break;
-                    case JsonTokenType.Null:
-                        ds = null;
-                        reader.Read();
-                        break;
-                    default:
-                        throw new JsonException($"Expected either the start of an object or null but found '{reader.TokenType}'.");
-                }
-
-                datasetList.Add(ds);
-            }
-            reader.Read();
-            return datasetList.ToArray();
-        }
-
-        public override void Write(Utf8JsonWriter writer, DicomDataset[] value, JsonSerializerOptions options)
-        {
-            var conv = new DicomJsonConverter(writeTagsAsKeywords: _writeTagsAsKeywords);
-            writer.WriteStartArray();
-            foreach (var ds in value)
-            {
-                conv.Write(writer, ds, options);
-            }
-            writer.WriteEndArray();
-        }
-
-    }
 
     /// <summary>
     /// Defines the way DICOM numbers (tags with VR: IS, DS, SV and UV) should be serialized
@@ -599,9 +531,23 @@ namespace FellowOakDicom.Serialization
             throw new FormatException("Failed converting DS value to json");
         }
 
+        /// <summary>
+        /// Returns true for an empty single-valued text element (Short Text, Long Text, Unlimited Text,
+        /// Universal Resource). Such an element must not be serialized with a "Value" member, see
+        /// PS3.18 F.2.5 and issue #2162. Multi-valued elements are not affected: an empty one reports
+        /// Count == 0, and an empty value item inside a non-empty one must stay a JSON null.
+        /// </summary>
+        /// <remarks>
+        /// Reading a lazy buffer's size forces string-to-byte encoding, which can require target encodings
+        /// that have not yet been assigned to an element constructed from a string.
+        /// </remarks>
+        private static bool IsEmptySingleValuedTextElement(DicomElement elem)
+            => elem is DicomStringElement and not DicomMultiStringElement
+               && string.IsNullOrEmpty(elem.Get<string>());
+
         private static void WriteJsonElement<T>(Utf8JsonWriter writer, DicomElement elem, WriteValue<T> writeValue)
         {
-            if (elem.Count != 0)
+            if (elem.Count != 0 && !IsEmptySingleValuedTextElement(elem))
             {
                 T[] values = elem.Get<T[]>();
                 writer.WritePropertyName("Value");

@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2012-2025 fo-dicom contributors.
+﻿// Copyright (c) 2012-2026 fo-dicom contributors.
 // Licensed under the Microsoft Public License (MS-PL).
 
 using FellowOakDicom.Imaging;
@@ -29,7 +29,7 @@ namespace FellowOakDicom.Tests.Bugs
             var streamByteDicomFile = DicomFile.Open(ms);
 
             var referencePixelData = streamByteDicomFile.Dataset.GetDicomItem<DicomOtherWord>(DicomTag.PixelData);
-            var pixelData = DicomPixelData.Create(streamByteDicomFile.Dataset);
+            var pixelData = DicomPixelData.CreateFromDataset(streamByteDicomFile.Dataset);
             var numberOfFrames = streamByteDicomFile.Dataset.GetSingleValue<int>(DicomTag.NumberOfFrames);
             var referenceBytes = Enumerable.Range(0, numberOfFrames).Select(x =>
                 {

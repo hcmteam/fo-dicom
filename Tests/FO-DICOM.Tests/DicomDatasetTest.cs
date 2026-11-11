@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2012-2025 fo-dicom contributors.
+﻿// Copyright (c) 2012-2026 fo-dicom contributors.
 // Licensed under the Microsoft Public License (MS-PL).
 #nullable disable
 
@@ -406,7 +406,7 @@ namespace FellowOakDicom.Tests
             var data = new MemoryByteBuffer(new byte[] { 255 }); //dummy data
 
             ds.AddOrUpdate(DicomTag.BitsAllocated, (ushort)8);
-            var pixelData = DicomPixelData.Create(ds, true);
+            var pixelData = DicomPixelData.CreateNew(ds);
             pixelData.AddFrame(data);
 
             Assert.Equal(DicomTransferSyntax.ExplicitVRLittleEndian, ds.InternalTransferSyntax);
@@ -880,11 +880,7 @@ namespace FellowOakDicom.Tests
                 new DicomIntegerString(
                     DicomTag.SeriesNumber,
                     new MemoryByteBuffer(
-#if NETSTANDARD
-                        Encoding.GetEncoding(0).GetBytes("1.1")
-#else
                         Encoding.Default.GetBytes("1.1")
-#endif
                     )
                 ) },
                 false // do not validate, since the VR violation is intended.
@@ -901,11 +897,7 @@ namespace FellowOakDicom.Tests
                 new DicomIntegerString(
                     DicomTag.SeriesNumber,
                     new MemoryByteBuffer(
-#if NETSTANDARD
-                        Encoding.GetEncoding(0).GetBytes("1.1")
-#else
                         Encoding.Default.GetBytes("1.1")
-#endif
                     )
                 ) },
                 false // do not validate, since the VR violation is intended.
@@ -922,18 +914,14 @@ namespace FellowOakDicom.Tests
                 new DicomIntegerString(
                     DicomTag.SeriesNumber,
                     new MemoryByteBuffer(
-#if NETSTANDARD
-                        Encoding.GetEncoding(0).GetBytes("1.1")
-#else
                         Encoding.Default.GetBytes("1.1")
-#endif
                     )
                 ) },
                 false // do not validate, since the VR violation is intended.
             );
             Assert.False(dataset.TryGetSingleValue(DicomTag.SeriesNumber, out int _));
         }
-        
+
         [Fact]
         public void FunctionalGroupValues_ShouldNotCrashWithEmptySharedFunctionalGroupsSequence()
         {
@@ -941,10 +929,10 @@ namespace FellowOakDicom.Tests
             var dataset = new DicomDataset();
             var sequence = new DicomSequence(DicomTag.SharedFunctionalGroupsSequence);
             dataset.Add(sequence);
-            
+
             //Act
             var result = dataset.FunctionalGroupValues(0);
-            
+
             //Assert
             Assert.Empty(result);
         }

@@ -1,20 +1,21 @@
-﻿// Copyright (c) 2012-2025 fo-dicom contributors.
+﻿// Copyright (c) 2012-2026 fo-dicom contributors.
 // Licensed under the Microsoft Public License (MS-PL).
 #nullable disable
 
-using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using FellowOakDicom.Network;
 using FellowOakDicom.Network.Client;
 using FellowOakDicom.Network.Client.Advanced.Association;
 using FellowOakDicom.Network.Client.Advanced.Connection;
 using FellowOakDicom.Tests.Helpers;
 using Microsoft.Extensions.Logging;
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
+using System.Net.Sockets;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -36,10 +37,7 @@ namespace FellowOakDicom.Tests.Network
         public async Task Constructor_EstablishTwoWithSamePort_ShouldYieldAccessibleException()
         {
             using var server1 = DicomServerFactory.Create<DicomCEchoProvider>(0, logger: _logger.IncludePrefix("DicomServer"));
-            while (!server1.IsListening)
-            {
-                await Task.Delay(10);
-            }
+            await AsyncTestHelper.WaitForServerListeningAsync(server1, 30);
 
             var exception = Record.Exception(() => DicomServerFactory.Create<DicomCEchoProvider>(server1.Port, logger: _logger.IncludePrefix("DicomServer")));
             Assert.IsType<DicomNetworkException>(exception);
@@ -52,10 +50,7 @@ namespace FellowOakDicom.Tests.Network
         public async Task Stop_IsListening_TrueUntilStopRequested()
         {
             using var server = DicomServerFactory.Create<DicomCEchoProvider>(0, logger: _logger.IncludePrefix("DicomServer"));
-            while (!server.IsListening)
-            {
-                await Task.Delay(10);
-            }
+            await AsyncTestHelper.WaitForServerListeningAsync(server, 30);
 
             for (var i = 0; i < 10; ++i)
             {
@@ -170,7 +165,7 @@ namespace FellowOakDicom.Tests.Network
             {
                 var server = DicomServerFactory.Create<DicomCEchoProvider>(0, logger: _logger.IncludePrefix("DicomServer"));
                 ports[i] = server.Port;
-                while (!server.IsListening) { await Task.Delay(10); }
+                await AsyncTestHelper.WaitForServerListeningAsync(server, 30);
             }
 
             foreach (var port in ports)
@@ -188,7 +183,7 @@ namespace FellowOakDicom.Tests.Network
         public async Task IsListening_DicomServerRunningOnPort_ReturnsTrue()
         {
             using var server = DicomServerFactory.Create<DicomCEchoProvider>(0, logger: _logger.IncludePrefix("DicomServer"));
-            while (!server.IsListening) { await Task.Delay(10); }
+            await AsyncTestHelper.WaitForServerListeningAsync(server, 30);
             Assert.True(DicomServerRegistry.Get(server.Port).DicomServer.IsListening);
         }
 
@@ -312,7 +307,7 @@ namespace FellowOakDicom.Tests.Network
         public async Task Stop_DisconnectedClientsCount_ShouldBeZeroAfterShortDelay()
         {
             using var server = DicomServerFactory.Create<DicomCEchoProvider>(0, logger: _logger.IncludePrefix("DicomServer"));
-            while (!server.IsListening) { await Task.Delay(10); }
+            await AsyncTestHelper.WaitForServerListeningAsync(server, 30);
 
             var client = DicomClientFactory.Create("127.0.0.1", server.Port, false, "SCU", "ANY-SCP");
             client.Logger = _logger.IncludePrefix("DicomClient");
@@ -390,7 +385,7 @@ namespace FellowOakDicom.Tests.Network
                 {
                     using (DicomServerFactory.Create<DicomCEchoProvider>(NetworkManager.IPv6Any, server.Port, logger: _logger.IncludePrefix("DicomServer")))
                     {
-                            // do nothing here
+                        // do nothing here
                     }
                 });
             Assert.Null(e);
@@ -622,7 +617,7 @@ namespace FellowOakDicom.Tests.Network
             var clientLogger = _logger.IncludePrefix("Client");
             var disposedDicomServices = new ConcurrentStack<DicomService>();
             int numberOfDisposedDicomServices;
-            using(var server = (DisposableDicomCEchoProviderServer) DicomServerFactory.Create<DisposableDicomCEchoProvider, DisposableDicomCEchoProviderServer>(
+            using (var server = (DisposableDicomCEchoProviderServer)DicomServerFactory.Create<DisposableDicomCEchoProvider, DisposableDicomCEchoProviderServer>(
                       "127.0.0.1", 0, logger: serverLogger))
             {
                 var connectionRequest = new AdvancedDicomClientConnectionRequest
@@ -758,31 +753,140 @@ namespace FellowOakDicom.Tests.Network
                 await server.Registration.Task;
             }
 
+            // Wait for all services to be disposed with proper synchronization
+            await AsyncTestHelper.WaitForCountAsync(() => disposedDicomServices.Count, 100, TimeSpan.FromSeconds(10));
+
             var uniqueDisposedServices = new HashSet<DicomService>(disposedDicomServices);
             Assert.Equal(100, uniqueDisposedServices.Count);
         }
 
-        private void TestFoDicomUnhandledException(int port)
+        [Fact]
+        public async Task FailingDicomServiceShouldReleaseSemaphore()
         {
-            var server = DicomServerFactory.Create<DicomCEchoProvider>(port);
-            Thread.Sleep(500);
-            server.Stop();
+            IDicomClient client;
+
+            const int maxClients = 2;
+            using var server = DicomServerFactory.Create<ThrowingDicomService>(0, configure: o => o.MaxClientsAllowed = maxClients);
+            await AsyncTestHelper.WaitForServerListeningAsync(server);
+
+            // call 2 echos - both of them will cause the dicomservice constructor to fail
+            for (int i = 1; i <= maxClients; i++)
+            {
+                client = DicomClientFactory.Create("127.0.0.1", server.Port, false, "SCU", "ANY-SCP");
+                client.ClientOptions.AssociationRequestTimeoutInMs = 5_000;
+                client.ClientOptions.MaximumNumberOfRequestsPerAssociation = 1;
+                await client.AddRequestAsync(new DicomCEchoRequest());
+                try
+                {
+                    using var ctsreq = new CancellationTokenSource(TimeSpan.FromMilliseconds(6_000));
+                    await client.SendAsync(ctsreq.Token);
+                }
+                catch (Exception) { /* ignore */ }
+                await Task.Delay(100);
+            }
+
+            // now after the two failed echos, there should still be some echos possible without timeout
+            Exception ex = null;
+            client = DicomClientFactory.Create("127.0.0.1", server.Port, false, "SCU", "ANY-SCP");
+            client.ClientOptions.AssociationRequestTimeoutInMs = 5_000;
+            client.ClientOptions.MaximumNumberOfRequestsPerAssociation = 1;
+            await client.AddRequestAsync(new DicomCEchoRequest());
+            using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(6_000));
+            try
+            {
+                await client.SendAsync(cts.Token);
+            }
+            catch (Exception e) { ex = e; }
+
+            // there has to be an exception, because the DicomServer threw an exception in constructor of SCP
+            Assert.NotNull(ex);
+            // but the client should not have run into a timeout, which would indicate that the server's semaphore was not released after the exception in the DicomService constructor
+            Assert.False(cts.Token.IsCancellationRequested);
         }
 
-        [Fact(Skip = "This test is flaky because it crashes whenever a parallel test happens to have an unobserved exception")]
+
+        [Fact]
         public async Task StopServerWithoutException()
         {
-            object ue = null;
-            AppDomain.CurrentDomain.UnhandledException += (sender, args) => ue = args.ExceptionObject;
-            TaskScheduler.UnobservedTaskException += (sender, args) => ue = args.Exception;
+            object unhandledExceptionObject = null;
+            AppDomain.CurrentDomain.UnhandledException += (sender, args) => unhandledExceptionObject = args.ExceptionObject;
+            TaskScheduler.UnobservedTaskException += (sender, args) => unhandledExceptionObject = args.Exception;
 
-            await Task.Factory.StartNew(() => TestFoDicomUnhandledException(0));
+            await Task.Factory.StartNew(async () =>
+            {
+                var server = DicomServerFactory.Create<DicomCEchoProvider>(0);
+                await Task.Delay(TimeSpan.FromMilliseconds(500));
+                server.Stop();
+            });
 
             await Task.Delay(2000);
             GC.Collect();
             GC.WaitForPendingFinalizers();
 
-            Assert.Null(ue);
+            Assert.Null(unhandledExceptionObject);
+        }
+
+        [Fact]
+        public async Task MalformedPdu_ListenAndProcessPDUAsyncException_IsObservedByContinuation()
+        {
+            // Regression for the unobserved-task leak: when ListenAndProcessPDUAsync
+            // throws (e.g. on an unknown PDU type), TryCloseConnectionAsync re-throws
+            // the original cause via ExceptionDispatchInfo. Without observing
+            // RunningDicomService.Task.Exception in the ContinueWith continuation,
+            // every faulted connection task leaks an UnobservedTaskException when
+            // the Task is finalized.
+            var capturedDicomExceptions = new ConcurrentBag<Exception>();
+            void Handler(object sender, UnobservedTaskExceptionEventArgs args)
+            {
+                foreach (var inner in args.Exception.InnerExceptions)
+                {
+                    if (inner is DicomNetworkException)
+                    {
+                        capturedDicomExceptions.Add(inner);
+                    }
+                }
+                // Always mark observed so we do not crash other parallel tests
+                // that may be in the middle of their own UnobservedTaskException
+                // race.
+                args.SetObserved();
+            }
+
+            TaskScheduler.UnobservedTaskException += Handler;
+            try
+            {
+                using (var server = DicomServerFactory.Create<DicomCEchoProvider>(0, logger: _logger.IncludePrefix("DicomServer")))
+                {
+                    await AsyncTestHelper.WaitForServerListeningAsync(server, 30);
+
+                    // Each connection sends a 6-byte PDU header with an invalid
+                    // type byte (anything outside 0x01..0x07). ListenAndProcessPDUAsync
+                    // throws DicomNetworkException("Unknown PDU type: ..."), which
+                    // would previously leak as an unobserved Task exception.
+                    for (var i = 0; i < 8; i++)
+                    {
+                        using var client = new TcpClient();
+                        await client.ConnectAsync("127.0.0.1", server.Port);
+                        await client.GetStream().WriteAsync(new byte[] { 0x9A, 0, 0, 0, 0, 0 }, 0, 6);
+                        // Read a few bytes / let the server close before disposing.
+                        try { await client.GetStream().ReadAsync(new byte[8], 0, 8); } catch { /* expected */ }
+                    }
+                }
+
+                // Force GC + finalizer drain so any leaked unobserved Task surfaces
+                // now rather than at some later point.
+                for (var i = 0; i < 4; i++)
+                {
+                    GC.Collect();
+                    GC.WaitForPendingFinalizers();
+                    await Task.Delay(50);
+                }
+            }
+            finally
+            {
+                TaskScheduler.UnobservedTaskException -= Handler;
+            }
+
+            Assert.Empty(capturedDicomExceptions);
         }
 
         #endregion
@@ -828,7 +932,7 @@ namespace FellowOakDicom.Tests.Network
         {
             private readonly Action<DicomService> _onDispose;
 
-            public DisposableDicomCEchoProvider(INetworkStream stream, Encoding fallbackEncoding, Microsoft.Extensions.Logging.ILogger log,
+            public DisposableDicomCEchoProvider(INetworkStream stream, Encoding fallbackEncoding, ILogger log,
                 DicomServiceDependencies dicomServiceDependencies, Action<DicomService> onDispose)
                 : base(stream, fallbackEncoding, log, dicomServiceDependencies)
             {
@@ -875,6 +979,29 @@ namespace FellowOakDicom.Tests.Network
             }
         }
 
+
+        /// <summary>
+        /// A DicomService subclass whose constructor always throws, simulating a DI
+        /// resolution failure or any other constructor error.
+        /// </summary>
+        public class ThrowingDicomService : DicomService, IDicomServiceProvider, IDicomCEchoProvider
+        {
+            public ThrowingDicomService(
+                INetworkStream stream,
+                Encoding fallbackEncoding,
+                ILogger logger,
+                DicomServiceDependencies dependencies)
+                : base(stream, fallbackEncoding, logger, dependencies)
+            {
+                throw new InvalidOperationException("Simulated constructor failure in ThrowingDicomService");
+            }
+
+            public Task OnReceiveAssociationRequestAsync(DicomAssociation association) => throw new NotImplementedException();
+            public Task OnReceiveAssociationReleaseRequestAsync() => throw new NotImplementedException();
+            public void OnReceiveAbort(DicomAbortSource source, DicomAbortReason reason) { }
+            public void OnConnectionClosed(Exception exception) { }
+            public Task<DicomCEchoResponse> OnCEchoRequestAsync(DicomCEchoRequest request) => throw new NotImplementedException();
+        }
 
         #endregion
     }

@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2012-2025 fo-dicom contributors.
+﻿// Copyright (c) 2012-2026 fo-dicom contributors.
 // Licensed under the Microsoft Public License (MS-PL).
 #nullable disable
 
@@ -21,9 +21,6 @@ namespace FellowOakDicom.Network
         /// <param name="stream">Network stream on which DICOM communication is establshed.</param>
         /// <param name="fallbackEncoding">Text encoding if not specified within messaging.</param>
         /// <param name="log">DICOM logger.</param>
-        /// <param name="logManager">The log manager</param>
-        /// <param name="networkManager">The network manager</param>
-        /// <param name="transcoderManager">The transcoder manager</param>
         public DicomCEchoProvider(INetworkStream stream, Encoding fallbackEncoding, ILogger log,
             DicomServiceDependencies dependencies)
             : base(stream, fallbackEncoding, log, dependencies)

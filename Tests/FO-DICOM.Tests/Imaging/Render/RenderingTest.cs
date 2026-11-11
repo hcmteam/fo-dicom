@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2012-2025 fo-dicom contributors.
+﻿// Copyright (c) 2012-2026 fo-dicom contributors.
 // Licensed under the Microsoft Public License (MS-PL).
 #nullable disable
 
@@ -27,7 +27,7 @@ namespace FellowOakDicom.Tests.Imaging.Render
             Assert.True(col1.R>0);
         }
 
-        [FactForNetCore]
+        [FactWithCodec]
         public void RenderJpeg2000_YBR_RCT()
         {
             var myDicomFile = DicomFile.Open(TestData.Resolve("VL5_J2KI.dcm"));

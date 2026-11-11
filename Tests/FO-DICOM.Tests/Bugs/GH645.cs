@@ -1,4 +1,4 @@
-// Copyright (c) 2012-2025 fo-dicom contributors.
+// Copyright (c) 2012-2026 fo-dicom contributors.
 // Licensed under the Microsoft Public License (MS-PL).
 #nullable disable
 
@@ -17,7 +17,7 @@ namespace FellowOakDicom.Tests.Bugs
             var dicomFile = DicomFile.Open(TestData.Resolve("GH645.dcm"));
 
             // Act
-            var pixelData = DicomPixelData.Create(dicomFile.Dataset);
+            var pixelData = DicomPixelData.CreateFromDataset(dicomFile.Dataset);
             var uncompressedFrameSize = pixelData.UncompressedFrameSize;
 
             // Assert

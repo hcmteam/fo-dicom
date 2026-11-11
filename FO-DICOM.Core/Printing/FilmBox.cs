@@ -1,15 +1,15 @@
-﻿// Copyright (c) 2012-2025 fo-dicom contributors.
+﻿// Copyright (c) 2012-2026 fo-dicom contributors.
 // Licensed under the Microsoft Public License (MS-PL).
 #nullable disable
 
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using FellowOakDicom.Imaging.Mathematics;
 using FellowOakDicom.IO;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 
 namespace FellowOakDicom.Printing
 {
@@ -481,11 +481,11 @@ namespace FellowOakDicom.Printing
             {
                 if (string.IsNullOrEmpty(ImageDisplayFormat))
                 {
-                    Logger.LogError("No display format present in N-CREATE Basic Film Box dataset");
+                    Logger.ErrorNoDisplayFormatPresent();
                     return false;
                 }
 
-                Logger.LogInformation($"Applying display format {ImageDisplayFormat} for film box {SOPInstanceUID}");
+                Logger.InformationApplyDisplayFormat(ImageDisplayFormat, SOPInstanceUID);
 
                 var parts = ImageDisplayFormat.Split('\\');
 
@@ -526,7 +526,7 @@ namespace FellowOakDicom.Printing
             }
             catch (Exception ex)
             {
-                Logger.LogError("FilmBox.Initialize, exception message: {0}", ex.Message);
+                Logger.ErrorInitializeFilmbox(ex);
             }
 
             return false;
@@ -608,7 +608,7 @@ namespace FellowOakDicom.Printing
         /// <param name="parts">Display format data.</param>
         /// <param name="marginBounds">Margin bounds.</param>
         /// <returns>Rectangles arranged in column format.</returns>
-        public static RectF[] PrintColumnFormat(string[] parts, RectF marginBounds)
+        public static Rect<float>[] PrintColumnFormat(string[] parts, Rect<float> marginBounds)
         {
             if (parts.Length >= 2)
             {
@@ -616,7 +616,7 @@ namespace FellowOakDicom.Printing
 
                 var boxWidth = marginBounds.Width / colsCount;
 
-                var boxes = new List<RectF>();
+                var boxes = new List<Rect<float>>();
 
                 for (int c = 0; c < colsCount; c++)
                 {
@@ -627,7 +627,7 @@ namespace FellowOakDicom.Printing
                     for (int r = 0; r < rowsCount; r++)
                     {
                         boxes.Add(
-                            new RectF
+                            new Rect<float>
                             {
                                 X = marginBounds.X + c * boxWidth,
                                 Y = marginBounds.Y + r * boxHeight,
@@ -648,7 +648,7 @@ namespace FellowOakDicom.Printing
         /// <param name="parts">Display format data.</param>
         /// <param name="marginBounds">Margin bounds.</param>
         /// <returns>Rectangles arranged in row format.</returns>
-        public static RectF[] PrintRowFormat(string[] parts, RectF marginBounds)
+        public static Rect<float>[] PrintRowFormat(string[] parts, Rect<float> marginBounds)
         {
             if (parts.Length >= 2)
             {
@@ -656,7 +656,7 @@ namespace FellowOakDicom.Printing
 
                 var boxHeight = marginBounds.Height / rowsCount;
 
-                var boxes = new List<RectF>();
+                var boxes = new List<Rect<float>>();
 
                 for (int r = 0; r < rowsCount; r++)
                 {
@@ -667,7 +667,7 @@ namespace FellowOakDicom.Printing
                     for (int c = 0; c < colsCount; c++)
                     {
                         boxes.Add(
-                            new RectF
+                            new Rect<float>
                             {
                                 X = marginBounds.X + c * boxWidth,
                                 Y = marginBounds.Y + r * boxHeight,
@@ -688,7 +688,7 @@ namespace FellowOakDicom.Printing
         /// <param name="parts">Display format data.</param>
         /// <param name="marginBounds">Margin bounds.</param>
         /// <returns>Rectangles arranged in standard format.</returns>
-        public static RectF[] PrintStandardFormat(string[] parts, RectF marginBounds)
+        public static Rect<float>[] PrintStandardFormat(string[] parts, Rect<float> marginBounds)
         {
             if (parts.Length >= 3)
             {
@@ -698,14 +698,14 @@ namespace FellowOakDicom.Printing
                 var boxWidth = marginBounds.Width / columns;
                 var boxHeight = marginBounds.Height / rows;
 
-                var boxes = new List<RectF>();
+                var boxes = new List<Rect<float>>();
                 for (int r = 0; r < rows; r++)
                 {
                     for (int c = 0; c < columns; c++)
                     {
 
                         boxes.Add(
-                            new RectF
+                            new Rect<float>
                             {
                                 X = marginBounds.X + c * boxWidth,
                                 Y = marginBounds.Y + r * boxHeight,

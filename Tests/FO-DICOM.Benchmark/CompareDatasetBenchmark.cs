@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2012-2025 fo-dicom contributors.
+﻿// Copyright (c) 2012-2026 fo-dicom contributors.
 // Licensed under the Microsoft Public License (MS-PL).
 #nullable disable
 
@@ -45,11 +45,7 @@ namespace FellowOakDicom.Benchmark
             _mrData = new MemoryStream(File.ReadAllBytes(Path.Combine(_rootpath, "Data\\mr.dcm")));
             _mgData = new MemoryStream(File.ReadAllBytes(Path.Combine(_rootpath, "Data\\mg.dcm")));
             _dicomdirData = new MemoryStream(File.ReadAllBytes(Path.Combine(_rootpath, "Data\\DICOMDIR")));
-        }
 
-        [IterationSetup]
-        public void IterationSetup()
-        {
             _ctDataset = DicomFile.Open(Path.Combine(_rootpath, "Data\\ct.dcm")).Dataset;
             _mrDataset = DicomFile.Open(Path.Combine(_rootpath, "Data\\mr.dcm")).Dataset;
             _mgDataset = DicomFile.Open(Path.Combine(_rootpath, "Data\\mg.dcm")).Dataset;

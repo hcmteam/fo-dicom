@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2012-2025 fo-dicom contributors.
+﻿// Copyright (c) 2012-2026 fo-dicom contributors.
 // Licensed under the Microsoft Public License (MS-PL).
 #nullable disable
 
@@ -37,9 +37,9 @@ namespace FellowOakDicom.Tests.Bugs
             var reopenedDicomFile = DicomFile.Open(outputFile.FullName);
 
             // Assert
-            var fileBytePixelData = DicomPixelData.Create(fileByteDicomFile.Dataset);
-            var streamBytePixelData = DicomPixelData.Create(streamByteDicomFile.Dataset);
-            var reopenedPixelData = DicomPixelData.Create(reopenedDicomFile.Dataset);
+            var fileBytePixelData = DicomPixelData.CreateFromDataset(fileByteDicomFile.Dataset);
+            var streamBytePixelData = DicomPixelData.CreateFromDataset(streamByteDicomFile.Dataset);
+            var reopenedPixelData = DicomPixelData.CreateFromDataset(reopenedDicomFile.Dataset);
 
             Assert.Equal(79, fileBytePixelData.NumberOfFrames);
             Assert.Equal(79, streamBytePixelData.NumberOfFrames);
@@ -85,9 +85,9 @@ namespace FellowOakDicom.Tests.Bugs
             var reopenedDicomFile = await DicomFile.OpenAsync(outputFile.FullName);
 
             // Assert
-            var fileBytePixelData = DicomPixelData.Create(fileByteDicomFile.Dataset);
-            var streamBytePixelData = DicomPixelData.Create(streamByteDicomFile.Dataset);
-            var reopenedPixelData = DicomPixelData.Create(reopenedDicomFile.Dataset);
+            var fileBytePixelData = DicomPixelData.CreateFromDataset(fileByteDicomFile.Dataset);
+            var streamBytePixelData = DicomPixelData.CreateFromDataset(streamByteDicomFile.Dataset);
+            var reopenedPixelData = DicomPixelData.CreateFromDataset(reopenedDicomFile.Dataset);
 
             Assert.Equal(79, fileBytePixelData.NumberOfFrames);
             Assert.Equal(79, streamBytePixelData.NumberOfFrames);

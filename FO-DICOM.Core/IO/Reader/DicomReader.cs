@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2012-2025 fo-dicom contributors.
+﻿// Copyright (c) 2012-2026 fo-dicom contributors.
 // Licensed under the Microsoft Public License (MS-PL).
 #nullable disable
 
@@ -102,6 +102,16 @@ namespace FellowOakDicom.IO.Reader
             /// Defined value for undefined length.
             /// </summary>
             private const uint _undefinedLength = 0xffffffff;
+
+            /// <summary>
+            /// Maximum nesting depth allowed for SQ items. Crafted DICOM with
+            /// deeply-nested sequences would otherwise cause an uncatchable
+            /// <see cref="StackOverflowException"/> in <see cref="ParseDataset"/>'s
+            /// recursive descent. 256 is far above any realistic medical use
+            /// (Structured Reports rarely exceed 10-15 levels) and well below
+            /// the stack-exhaustion threshold on common runtimes.
+            /// </summary>
+            private const int _maxSequenceDepth = 256;
 
             private readonly IDicomReaderObserver _observer;
 
@@ -329,7 +339,7 @@ namespace FellowOakDicom.IO.Reader
                     tag = entry.Tag; // Use dictionary tag
                 }
 
-                if (_stop?.Invoke(new ParseState { PreviousTag = _previousTag, Tag = tag, SequenceDepth = sequenceDepth }) ?? false)
+                if (_stop != null && _stop(new ParseState { PreviousTag = _previousTag, Tag = tag, SequenceDepth = sequenceDepth }))
                 {
                     // if a stop is requested, then move back to the beginning of the tag.
                     _result = DicomReaderResult.Stopped;
@@ -653,9 +663,8 @@ namespace FellowOakDicom.IO.Reader
                 // The VR of the private identification code shall be LO (Long String) and the VM shall be equal to 1.
                 if (tag.IsPrivate && tag.Element >= 0x0010 && tag.Element <= 0x00ff)
                 {
-                    var creator =
-                        DicomEncoding.Default.GetString(buffer.Data, 0, buffer.Data.Length)
-                            .TrimEnd((char)DicomVR.LO.PaddingValue);
+                    var creatorSpan = ((ReadOnlySpan<byte>)buffer.Data).TrimEnd(DicomVR.LO.PaddingValue);
+                    var creator = DicomEncoding.Default.GetString(creatorSpan);
                     var card = (uint)(tag.Group << 16) + tag.Element;
 
                     _private[card] = creator;
@@ -779,9 +788,8 @@ namespace FellowOakDicom.IO.Reader
                 // The VR of the private identification code shall be LO (Long String) and the VM shall be equal to 1.
                 if (tag.IsPrivate && tag.Element >= 0x0010 && tag.Element <= 0x00ff)
                 {
-                    var creator =
-                        DicomEncoding.Default.GetString(buffer.Data, 0, buffer.Data.Length)
-                            .TrimEnd((char)DicomVR.LO.PaddingValue);
+                    var creatorSpan = ((ReadOnlySpan<byte>)buffer.Data).TrimEnd(DicomVR.LO.PaddingValue);
+                    var creator = DicomEncoding.Default.GetString(creatorSpan);
                     var card = (uint)(tag.Group << 16) + tag.Element;
 
                     _private[card] = creator;
@@ -889,6 +897,11 @@ namespace FellowOakDicom.IO.Reader
 
             private bool ParseItemSequenceValue(IByteSource source, DicomTag tag, uint length, int sequenceDepth, long positionItem, long positionOfValueEnd, bool handleBadPrivateSequence)
             {
+                if (sequenceDepth >= _maxSequenceDepth)
+                {
+                    throw new DicomReaderException($"Sequence nesting depth exceeded maximum of {_maxSequenceDepth} levels at item position {positionItem}.");
+                }
+
                 long endOfValue = positionOfValueEnd;
                 if (length != _undefinedLength)
                 {
@@ -921,6 +934,11 @@ namespace FellowOakDicom.IO.Reader
 
             private async Task<bool> ParseItemSequenceValueAsync(IByteSource source, DicomTag tag, uint length, int sequenceDepth, long positionItem, long positionEndOfValue, bool handleBadPrivateSequence)
             {
+                if (sequenceDepth >= _maxSequenceDepth)
+                {
+                    throw new DicomReaderException($"Sequence nesting depth exceeded maximum of {_maxSequenceDepth} levels at item position {positionItem}.");
+                }
+
                 long endOfValue = positionEndOfValue;
                 if (length != _undefinedLength)
                 {

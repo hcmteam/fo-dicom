@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2012-2025 fo-dicom contributors.
+﻿// Copyright (c) 2012-2026 fo-dicom contributors.
 // Licensed under the Microsoft Public License (MS-PL).
 #nullable disable
 
@@ -35,6 +35,8 @@ namespace FellowOakDicom.Imaging.Mathematics
         public static bool IsNearlyZero(this double v) => Math.Abs(v) < Constants.Epsilon;
 
         public static bool IsNearlyZero(this float v) => Math.Abs(v) < Constants.Epsilon;
+
+        public static bool IsNearlyZero(this decimal v) => (v < 0 ? -v : v) < Constants.EpsilonM;
 
     }
 }

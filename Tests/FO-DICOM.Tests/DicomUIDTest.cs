@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2012-2025 fo-dicom contributors.
+﻿// Copyright (c) 2012-2026 fo-dicom contributors.
 // Licensed under the Microsoft Public License (MS-PL).
 #nullable disable
 
@@ -137,7 +137,7 @@ namespace FellowOakDicom.Tests
         [Fact]
         public void CanParseGeneric()
         {
-            var uid = DicomParseable.Parse<DicomUID>("1.2.3.4.5.6.7.8.9.0");
+            var uid = DicomUID.Parse("1.2.3.4.5.6.7.8.9.0");
             Assert.Equal("Unknown", uid.Name);
             Assert.Equal("1.2.3.4.5.6.7.8.9.0", uid.UID);
             Assert.Equal(DicomUidType.Unknown, uid.Type);

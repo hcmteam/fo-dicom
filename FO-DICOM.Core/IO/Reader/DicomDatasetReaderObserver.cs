@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2012-2025 fo-dicom contributors.
+﻿// Copyright (c) 2012-2026 fo-dicom contributors.
 // Licensed under the Microsoft Public License (MS-PL).
 #nullable disable
 
@@ -109,7 +109,7 @@ namespace FellowOakDicom.IO.Reader
         {
             DicomSequence sq = _sequences.Peek();
 
-            DicomDataset item = new DicomDataset().NotValidated();
+            DicomDataset item = new DicomDataset(DicomTransferSyntax.ExplicitVRLittleEndian, 16).NotValidated();
             sq.Items.Add(item);
 
             _datasets.Push(item);

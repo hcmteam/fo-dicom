@@ -1,4 +1,4 @@
-// Copyright (c) 2012-2025 fo-dicom contributors.
+// Copyright (c) 2012-2026 fo-dicom contributors.
 // Licensed under the Microsoft Public License (MS-PL).
 #nullable disable
 
@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -19,7 +20,7 @@ namespace FellowOakDicom.Network
     /// Representation of a DICOM server.
     /// </summary>
     /// <typeparam name="T">DICOM service that the server should manage.</typeparam>
-    public class DicomServer<T> : IDicomServer<T> where T : DicomService, IDicomServiceProvider
+    public class DicomServer<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] T> : IDicomServer<T> where T : DicomService, IDicomServiceProvider
     {
         #region FIELDS
 
@@ -285,10 +286,7 @@ namespace FellowOakDicom.Network
                         // we need to wait until one of the existing clients closes its connection
                         while (!await _maxClientsSemaphore.WaitAsync(MaxClientsAllowedWaitInterval, _cancellationToken).ConfigureAwait(false))
                         {
-                            Logger.LogWarning("Waited {MaxClientsAllowedInterval}, " +
-                                               "but we still cannot accept another incoming connection " +
-                                               "because the maximum number of clients ({MaxClientsAllowed}) has been reached",
-                                MaxClientsAllowedWaitInterval, maxClientsAllowed);
+                            Logger.WarningMaxClientsAllowedReached(maxClientsAllowed, MaxClientsAllowedWaitInterval);
                         }
                     }
 
@@ -301,10 +299,12 @@ namespace FellowOakDicom.Network
                         // Process incoming TcpClient in a background task to not block the main listener
                         _ = Task.Run(() =>
                         {
+                            INetworkStream networkStream = null;
+                            RunningDicomService runningService = null;
                             try
                             {
                                 // let the INetworkStream dispose the TcpClient
-                                var networkStream = _networkManager.CreateNetworkStream(tcpClient, _tlsAcceptor, ownsTcpClient: true);
+                                networkStream = _networkManager.CreateNetworkStream(tcpClient, _tlsAcceptor, ownsTcpClient: true);
 
                                 var scp = CreateScp(networkStream);
                                 scp.RunsAsServer = true;
@@ -315,31 +315,46 @@ namespace FellowOakDicom.Network
 
                                 var serviceTask = scp.RunAsync();
                                 int numberOfServices;
-                                var runningService = new RunningDicomService(scp, serviceTask);
+                                runningService = new RunningDicomService(scp, serviceTask);
                                 lock (_services)
                                 {
                                     _services.Add(runningService);
                                     numberOfServices = _services.Count;
                                 }
-                                runningService.Task.ContinueWith((t) => RemoveCompletedService(runningService), TaskContinuationOptions.PreferFairness | TaskContinuationOptions.RunContinuationsAsynchronously);
+                                runningService.Task.ContinueWith(
+                                    (t) =>
+                                    {
+                                        // Observe and log any faulted Task. ListenAndProcessPDUAsync re-throws the
+                                        // original cause via ExceptionDispatchInfo at the end of TryCloseConnectionAsync,
+                                        // so without observing it here every malformed-PDU disconnect would leak an
+                                        // UnobservedTaskException once the Task is garbage-collected.
+                                        if (t.IsFaulted && t.Exception != null)
+                                        {
+                                            Logger.LogInformation(
+                                                t.Exception.GetBaseException(),
+                                                "DICOM service task completed with exception (peer disconnected with error)");
+                                        }
+                                        RemoveCompletedService(runningService);
+                                    },
+                                    TaskContinuationOptions.PreferFairness | TaskContinuationOptions.RunContinuationsAsynchronously);
 
-                                Logger.LogDebug(
-                                    "Accepted an incoming client connection, there are now {NumberOfServices} connected clients",
-                                    numberOfServices);
+                                Logger.DebugAcceptedIncommingConnection(numberOfServices);
 
                                 if (maxClientsAllowed > 0 && numberOfServices == maxClientsAllowed)
                                 {
-                                    Logger.LogWarning(
-                                        "Reached the maximum number of simultaneously connected clients, further incoming connections will be blocked until one or more clients disconnect");
+                                    Logger.WaringReachedMaximumNumberOfConnections();
                                 }
                             }
                             catch (OperationCanceledException)
                             {
-                                Logger.LogWarning("Cancellation occurred while accepting an incoming client connection");
+                                Logger.WaringAcceptingIncomingConnectionCanceled();
                             }
                             catch (Exception e)
                             {
-                                Logger.LogError(e, "An exception occurred while accepting an incoming client connection");
+                                Logger.ErrorWhileAcceptionIncommingConnection(e);
+                                tcpClient.Close();
+                                networkStream?.Dispose();
+                                RemoveCompletedService(runningService);
                             }
                         }, _cancellationToken);
                     }
@@ -347,11 +362,11 @@ namespace FellowOakDicom.Network
             }
             catch (OperationCanceledException e)
             {
-                Logger.LogWarning(e, "DICOM server was canceled");
+                Logger.WarningServerWasCanceled(e);
             }
             catch (Exception e)
             {
-                Logger.LogError(e, "Exception listening for DICOM services");
+                Logger.ErrorOnServerListening(e);
 
                 Stop();
                 Exception = e;
@@ -370,9 +385,12 @@ namespace FellowOakDicom.Network
             {
                 _maxClientsSemaphore?.Release(1);
             }
-            lock (_services)
+            if (runningService != null)
             {
-                _services.Remove(runningService);
+                lock (_services)
+                {
+                    _services.Remove(runningService);
+                }
             }
         }
 
@@ -393,7 +411,7 @@ namespace FellowOakDicom.Network
                 }
                 catch (Exception e)
                 {
-                    Logger.LogWarning("An error occurred while trying to dispose a DICOM service: {@Error}", e);
+                    Logger.WarningErrorDisposingServer(e);
                 }
             }
         }

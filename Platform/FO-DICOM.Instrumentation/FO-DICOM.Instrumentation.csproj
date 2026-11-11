@@ -1,15 +1,15 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net9.0;net8.0</TargetFrameworks>
+    <TargetFrameworks>net9.0;net8.0;net10.0</TargetFrameworks>
     <RootNamespace>FellowOakDicom</RootNamespace>
     <AssemblyName>fo-dicom.Instrumentation</AssemblyName>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-    <Version>5.2.5</Version>
+    <Version>6.0.0-alpha1</Version>
     <Authors>fo-dicom contributors</Authors>
-    <Copyright>Copyright (c) fo-dicom contributors 2012-2025</Copyright>
+    <Copyright>Copyright (c) fo-dicom contributors 2012-2026</Copyright>
     <Company>fo-dicom</Company>
     <Product>Fellow Oak DICOM</Product>
     <Description>A modern .NET imaging library for fo-dicom</Description>
@@ -17,7 +17,7 @@
     <PackageLicenseExpression>MS-PL</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/fo-dicom/fo-dicom</PackageProjectUrl>
     <PackageIcon>FellowOakSquareTransp.png</PackageIcon>
-    <LangVersion>9</LangVersion>
+    <LangVersion>14</LangVersion>
     <Platforms>AnyCPU;x64</Platforms>
     <DebugType>Embedded</DebugType>
   </PropertyGroup>
@@ -38,7 +38,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="OpenTelemetry.Api" Version="1.14.0" />
+    <PackageReference Include="OpenTelemetry.Api" Version="1.19.1" />
   </ItemGroup>
 
 </Project>

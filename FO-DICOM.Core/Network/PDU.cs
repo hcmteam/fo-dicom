@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2012-2025 fo-dicom contributors.
+﻿// Copyright (c) 2012-2026 fo-dicom contributors.
 // Licensed under the Microsoft Public License (MS-PL).
 #nullable disable
 
@@ -182,7 +182,7 @@ namespace FellowOakDicom.Network
         /// Gets string describing this PDU
         /// </summary>
         /// <returns>PDU description</returns>
-        public override string ToString() => $"Pdu[type={Type:X2}, length={Length}]";
+        public override string ToString() => $"Pdu[type={(byte)Type:X2}, length={Length}]";
 
         /// <summary>
         /// Reset PDU read stream
@@ -540,7 +540,7 @@ namespace FellowOakDicom.Network
             Write(rawPdu);
             var length = (ushort)ms.Position;
             rawPdu.GetCommonFields(buffer, length);
-            await stream.WriteAsync(buffer.Bytes, 0, RawPDU.CommonFieldsLength + length, cancellationToken).ConfigureAwait(false);
+            await stream.WriteAsync(buffer.Bytes.AsMemory(0, RawPDU.CommonFieldsLength + length), cancellationToken).ConfigureAwait(false);
             return (uint)(RawPDU.CommonFieldsLength + length);
         }
 
@@ -908,7 +908,7 @@ namespace FellowOakDicom.Network
             Write(rawPdu);
             var length = (ushort)ms.Position;
             rawPdu.GetCommonFields(buffer, length);
-            await stream.WriteAsync(buffer.Bytes, 0, RawPDU.CommonFieldsLength + length, cancellationToken).ConfigureAwait(false);
+            await stream.WriteAsync(buffer.Bytes.AsMemory(0, RawPDU.CommonFieldsLength + length), cancellationToken).ConfigureAwait(false);
             return (uint)(RawPDU.CommonFieldsLength + length);
         }
 
@@ -1295,7 +1295,7 @@ namespace FellowOakDicom.Network
             await using var rawPdu = new RawPDU(RawPduType.A_ASSOCIATE_RJ, _memoryProvider, DicomEncoding.Default, ms, true);
             Write(rawPdu);
             rawPdu.GetCommonFields(buffer, length);
-            await stream.WriteAsync(buffer.Bytes, 0, RawPDU.CommonFieldsLength + length, cancellationToken).ConfigureAwait(false);
+            await stream.WriteAsync(buffer.Bytes.AsMemory(0, RawPDU.CommonFieldsLength + length), cancellationToken).ConfigureAwait(false);
             return RawPDU.CommonFieldsLength + length;
         }
 
@@ -1361,7 +1361,7 @@ namespace FellowOakDicom.Network
             await using var rawPdu = new RawPDU(RawPduType.A_RELEASE_RQ, _memoryProvider, DicomEncoding.Default, ms, true);
             Write(rawPdu);
             rawPdu.GetCommonFields(buffer, length);
-            await stream.WriteAsync(buffer.Bytes, 0, RawPDU.CommonFieldsLength + length, cancellationToken).ConfigureAwait(false);
+            await stream.WriteAsync(buffer.Bytes.AsMemory(0, RawPDU.CommonFieldsLength + length), cancellationToken).ConfigureAwait(false);
             return RawPDU.CommonFieldsLength + length;
         }
 
@@ -1418,7 +1418,7 @@ namespace FellowOakDicom.Network
             await using var rawPdu = new RawPDU(RawPduType.A_RELEASE_RP, _memoryProvider, DicomEncoding.Default, ms, true);
             Write(rawPdu);
             rawPdu.GetCommonFields(buffer, length);
-            await stream.WriteAsync(buffer.Bytes, 0, RawPDU.CommonFieldsLength + length, cancellationToken).ConfigureAwait(false);
+            await stream.WriteAsync(buffer.Bytes.AsMemory(0, RawPDU.CommonFieldsLength + length), cancellationToken).ConfigureAwait(false);
             return RawPDU.CommonFieldsLength + length;
         }
 
@@ -1530,7 +1530,7 @@ namespace FellowOakDicom.Network
             await using var rawPdu = new RawPDU(RawPduType.A_ABORT, _memoryProvider, DicomEncoding.Default, ms, true);
             Write(rawPdu);
             rawPdu.GetCommonFields(buffer, length);
-            await stream.WriteAsync(buffer.Bytes, 0, RawPDU.CommonFieldsLength + length, cancellationToken).ConfigureAwait(false);
+            await stream.WriteAsync(buffer.Bytes.AsMemory(0, RawPDU.CommonFieldsLength + length), cancellationToken).ConfigureAwait(false);
             return RawPDU.CommonFieldsLength + length;
         }
 

@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2012-2025 fo-dicom contributors.
+﻿// Copyright (c) 2012-2026 fo-dicom contributors.
 // Licensed under the Microsoft Public License (MS-PL).
 #nullable disable
 
@@ -11,15 +11,15 @@ namespace FellowOakDicom.Log
 {
     public class DicomParserLogger : IDicomReaderObserver
     {
-        private readonly Microsoft.Extensions.Logging.ILogger _log;
+        private readonly ILogger _log;
 
-        private readonly Microsoft.Extensions.Logging.LogLevel _level;
+        private readonly LogLevel _level;
 
         private int _depth;
 
         private readonly string _pad;
 
-        public DicomParserLogger(Microsoft.Extensions.Logging.ILogger log, Microsoft.Extensions.Logging.LogLevel level)
+        public DicomParserLogger(ILogger log, LogLevel level)
         {
             _log = log;
             _level = level;

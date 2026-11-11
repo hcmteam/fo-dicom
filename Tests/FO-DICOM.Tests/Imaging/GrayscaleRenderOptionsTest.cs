@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2012-2025 fo-dicom contributors.
+﻿// Copyright (c) 2012-2026 fo-dicom contributors.
 // Licensed under the Microsoft Public License (MS-PL).
 #nullable disable
 
@@ -14,7 +14,7 @@ namespace FellowOakDicom.Tests.Imaging
     {
         #region Unit tests
 
-        [FactForNetCore]
+        [FactWithCodec]
         public void ColorMap_Monochrome2ImageOptions_ReturnsMonochrome2ColorMap()
         {
             var file = DicomFile.Open(TestData.Resolve("CT1_J2KI"));
@@ -22,7 +22,7 @@ namespace FellowOakDicom.Tests.Imaging
             Assert.Same(ColorTable.Monochrome2, options.ColorMap);
         }
 
-        [FactForNetCore]
+        [FactWithCodec]
         public void ColorMap_Setter_ReturnsSetColorMap()
         {
             var file = DicomFile.Open(TestData.Resolve("CT1_J2KI"));

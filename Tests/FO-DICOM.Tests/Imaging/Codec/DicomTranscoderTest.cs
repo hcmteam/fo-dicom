@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2012-2025 fo-dicom contributors.
+﻿// Copyright (c) 2012-2026 fo-dicom contributors.
 // Licensed under the Microsoft Public License (MS-PL).
 #nullable disable
 
@@ -16,7 +16,7 @@ namespace FellowOakDicom.Tests.Imaging.Codec
 
         #region Unit tests
 
-        [TheoryForNetCore]
+        [Theory]
         [MemberData(nameof(TransferSyntaxesNames))]
         public void GetCodec_KnownTransferSyntax_ShouldReturnCodecObject(DicomTransferSyntax transferSyntax, string expected)
         {
